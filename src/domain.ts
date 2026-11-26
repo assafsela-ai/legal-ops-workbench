@@ -23,6 +23,7 @@ export type Entry = { id: string; kind: 'Decision' | 'Task'; title: string; deta
 export type Case = { id: string; title: string; description: string; docs: Doc[]; policy: Source[]; entries: Entry[]; results: Result[] }
 export type Context = { plan: string; question: string; retention: string }
 export type Analyze = { tool: ToolId; docIds: string[]; context: Context; provider: 'ollama' | 'openai' }
+export const modelNames = { ollama: 'qwen3:8b', openai: 'gpt-6-luna' } as const
 
 export const emptyContext: Context = { plan: 'Enterprise', question: '', retention: '30' }
 

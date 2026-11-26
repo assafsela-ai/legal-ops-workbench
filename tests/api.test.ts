@@ -34,7 +34,9 @@ test('case files and history survive restart, and the UI key authorizes only con
     calls++
     assert.equal(url, 'https://api.openai.com/v1/responses')
     assert.equal(new Headers(init?.headers).get('authorization'), 'Bearer ' + fakeKey)
-    sent = JSON.parse(String(init?.body)).input[1].content
+    const body = JSON.parse(String(init?.body))
+    assert.equal(body.model, 'gpt-6-luna')
+    sent = body.input[1].content
     return Response.json({ status: 'completed', output: [{ content: [{ type: 'output_text', text: '{"findings":[]}' }] }] })
   }
   const server = createApp(store, 'dist', modelRunner(fakeFetch)).listen(0, '127.0.0.1')
@@ -70,6 +72,7 @@ test('case files and history survive restart, and the UI key authorizes only con
     assert.deepEqual(await (await request('/key', 'PUT', { key: fakeKey })).json(), { cloudConfigured: true })
     assert.deepEqual(await (await request('/status')).json(), { cloudConfigured: true })
     const preview = await (await request(route + '/analyze', 'POST', analysis)).json()
+    assert.equal(preview.model, 'gpt-6-luna')
     assert.ok(preview.input.includes('within 72 hours'))
     assert.equal(calls, 0)
     assert.equal((await request(route + '/confirm', 'POST', { token: preview.token })).status, 200)

@@ -1,7 +1,9 @@
+import { modelNames } from '../src/domain'
+
+export { modelNames }
 export type Provider = 'ollama' | 'openai'
 export type ModelInput = { instructions: string; data: string; schema: Record<string, unknown> }
 export type Runner = (provider: Provider, input: ModelInput, key?: string) => Promise<unknown>
-export const modelNames = { ollama: 'qwen3:8b', openai: 'gpt-5-mini' }
 
 export function modelRunner(fetcher: typeof fetch = fetch): Runner {
   return async (provider, input, key) => {

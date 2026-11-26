@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowRight, BookOpen, CircleHelp, Columns3, Files, Gavel, Ke
 import { api, caseRoute, post } from './api'
 import { Findings, icons, Modal } from './components'
 import { demo, demoContext, demoTask, initialDemoResult, runDemo, tour } from './demo'
-import { emptyContext, sourcesFor, tools, type Analyze, type Case, type Context, type Finding, type Ref, type Result, type ToolId } from './domain'
+import { emptyContext, modelNames, sourcesFor, tools, type Analyze, type Case, type Context, type Finding, type Ref, type Result, type ToolId } from './domain'
 import { newEntry, WorkspaceForm, type FormState } from './forms'
 import { Library, Sources } from './library'
 
@@ -22,8 +22,9 @@ export function App() {
   const [rows, setRows] = useState<CaseRow[]>([])
   const [area, setArea] = useState<Area>('vendor')
   const [context, setContext] = useState<Context>(local ? emptyContext : demoContext)
-  const [provider, setProvider] = useState<Analyze['provider']>('ollama')
+  const [providerSelection, setProviderSelection] = useState<Analyze['provider']>()
   const [cloud, setCloud] = useState(false)
+  const provider = providerSelection ?? (cloud ? 'openai' : 'ollama')
   const [selected, setSelected] = useState(local ? [] : defaultSelection(demo))
   const [before, setBefore] = useState('msa')
   const [after, setAfter] = useState('draft')
@@ -216,7 +217,7 @@ export function App() {
                 else { setBefore(event.target.value); live(context, selected, event.target.value, after) }
               }}><option value="">Select a version</option>{data.docs.filter(doc => local || ['msa', 'draft'].includes(doc.id)).map(doc => <option value={doc.id} key={doc.id}>{doc.name} · {doc.version}</option>)}</select>
             </label>)}</>}
-            {local && <label>Model<select value={provider} onChange={event => setProvider(event.target.value as Analyze['provider'])}><option value="ollama">Ollama · qwen3:8b</option><option value="openai">OpenAI · gpt-5-mini</option></select></label>}
+            {local && <label>Model<select value={provider} onChange={event => setProviderSelection(event.target.value as Analyze['provider'])}><option value="ollama">Ollama · {modelNames.ollama}</option><option value="openai">OpenAI · {modelNames.openai}</option></select></label>}
           </div>}
           {local && item.id !== 'redline' && <details className="evidence"><summary>Selected document versions ({selected.length})</summary>
             {data.docs.map(doc => <label className="check" key={doc.id}><input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggle(doc.id)}/>{doc.name} · {doc.version}</label>)}
