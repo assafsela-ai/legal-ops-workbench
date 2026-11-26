@@ -9,6 +9,20 @@ import { createStore } from '../server/store'
 import { modelRunner } from '../server/providers'
 import type { Case } from '../src/domain'
 
+test('Ollama uses loopback and parses a structured response without a cloud key', async () => {
+  const runner = modelRunner(async (url, init) => {
+    assert.equal(url, 'http://127.0.0.1:11434/api/chat')
+    assert.equal(new Headers(init?.headers).has('Authorization'), false)
+    const request = JSON.parse(String(init?.body))
+    assert.equal(request.model, 'qwen3:8b')
+    assert.deepEqual(request.format, { type: 'object' })
+    return Response.json({ message: { content: '{"findings":[]}' } })
+  })
+  assert.deepEqual(await runner('ollama', {
+    instructions: 'Use fictional evidence', data: '{}', schema: { type: 'object' },
+  }), { findings: [] })
+})
+
 test('case files and history survive restart, and the UI key authorizes only confirmed requests', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'workbench-'))
   const db = join(dir, 'test.sqlite')
