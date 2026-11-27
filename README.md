@@ -6,7 +6,9 @@ Six workflows for in-house legal teams in one case. Compare vendor claims and co
 
 ## Try the demo
 
-Select **Guided tour** to review a transcription vendor and prepare a fictional product launch. The browser demo uses saved AI results and runs without an account or API key.
+Select **Guided tour** to review a transcription vendor and prepare a fictional product launch. The tour uses saved results without an account or API key.
+
+For a live review of the same sample case, open a workflow and select **Analyze live with OpenAI**. Review the evidence and current inputs, enter your OpenAI API key, and select **Send and analyze**. GPT-6 Luna runs the analysis. The browser sends the request directly to OpenAI and clears the key field on submit. The app does not save the key. OpenAI may bill your API project. Select **Use saved results** to return to the sample’s saved findings.
 
 1. **AI Vendor Review.** Compare the vendor's training claim with its terms and open the source.
 2. **Redline Replay.** Compare the signed agreement with the renewal draft. Review where the liability cap changed.

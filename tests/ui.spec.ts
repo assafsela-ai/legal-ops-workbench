@@ -34,6 +34,56 @@ for (const size of [{ width: 1440, height: 900 }, { width: 390, height: 844 }]) 
   })
 }
 
+test('public live analysis sends sample evidence to Luna and verifies source quotes', async ({ page }) => {
+  const key = 'sk-fictional-ui-fixture-key'
+  let sends = 0
+  await page.route('https://api.openai.com/v1/responses', async route => {
+    sends++
+    const request = route.request()
+    const body = request.postDataJSON()
+    expect(request.headers().authorization).toBe('Bearer ' + key)
+    expect(body.model).toBe('gpt-6-luna')
+    expect(body.store).toBe(false)
+    expect(request.postData()).not.toContain(key)
+    expect(body.input[1].content).toContain('Northline AI terms')
+    await route.fulfill({ json: { status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({
+      findings: [{
+        title: 'Plan-specific training terms', summary: 'The clause applies to Enterprise customers.', review: false,
+        refs: [{ id: 'terms-3.2', quote: 'Only Enterprise customers are excluded from model training.' }],
+        action: null, date: null, days: null, baseHours: null, amendmentHours: null, amendmentPlan: null,
+      }, {
+        title: 'Invented clause', summary: 'A claim that should be rejected.', review: false,
+        refs: [{ id: 'terms-3.2', quote: 'Every customer is entitled to a refund.' }],
+        action: null, date: null, days: null, baseHours: null, amendmentHours: null, amendmentPlan: null,
+      }],
+    }) }] }] } })
+  })
+  await page.goto('http://127.0.0.1:4179/')
+  const live = page.getByRole('button', { name: 'Analyze live with OpenAI' })
+  const dialog = page.getByRole('dialog')
+  await live.click()
+  await dialog.getByLabel('OpenAI API key').fill(key)
+  await page.keyboard.press('Escape')
+  await expect(dialog).toHaveCount(0)
+  expect(sends).toBe(0)
+
+  await live.click()
+  await expect(dialog.getByLabel('OpenAI API key')).toHaveValue('')
+  await dialog.getByText('Review the evidence and inputs being sent').click()
+  await expect(dialog.locator('.payload')).toContainText('Northline AI terms')
+  await dialog.getByLabel('OpenAI API key').fill(key)
+  await dialog.getByRole('button', { name: 'Send and analyze' }).click()
+  const findings = page.getByRole('region', { name: 'Findings' })
+  await expect(findings.getByRole('heading', { name: 'Plan-specific training terms' })).toBeVisible()
+  await expect(findings.getByRole('heading', { name: 'Invented clause' })).toHaveCount(0)
+  await expect(page.getByRole('status')).toContainText('Live analysis · GPT-6 Luna')
+  await findings.getByRole('button', { name: /Northline AI terms/ }).click()
+  await expect(page.getByRole('blockquote')).toContainText('Only Enterprise customers')
+  expect(sends).toBe(1)
+  await page.getByRole('button', { name: 'Use saved results' }).click()
+  await expect(page.getByRole('status')).toContainText('saved AI results')
+})
+
 test('local key entry, preview cancellation, persistence, and delete', async ({ page }) => {
   const caseName = 'Fictional UI test ' + Date.now()
   await page.goto('http://127.0.0.1:4180/')

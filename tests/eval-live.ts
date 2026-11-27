@@ -1,6 +1,6 @@
 import { demo, demoContext } from '../src/demo'
 import { tools, type Analyze } from '../src/domain'
-import { finalizeAnalysis, prepareAnalysis } from '../server/analysis'
+import { finalizeAnalysis, prepareAnalysis } from '../src/analysis'
 import { modelRunner } from '../server/providers'
 
 // The evaluation sends only the bundled fictional evidence.

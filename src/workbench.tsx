@@ -6,6 +6,7 @@ import { demo, demoContext, demoTask, initialDemoResult, runDemo, tour } from '.
 import { emptyContext, modelNames, sourcesFor, tools, type Analyze, type Case, type Context, type Finding, type Ref, type Result, type ToolId } from './domain'
 import { newEntry, WorkspaceForm, type FormState } from './forms'
 import { Library, Sources } from './library'
+import { LiveAnalysis } from './live-analysis'
 
 type Area = ToolId | 'documents' | 'decisions'
 type CaseRow = Pick<Case, 'id' | 'title' | 'description'>
@@ -32,6 +33,8 @@ export function App() {
   const [result, setResult] = useState<Result | undefined>(local ? undefined : initialDemoResult)
   const [form, setForm] = useState<FormState>()
   const [preview, setPreview] = useState<Preview>()
+  const [liveRequest, setLiveRequest] = useState<Analyze>()
+  const [liveResult, setLiveResult] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [guided, setGuided] = useState(false)
@@ -73,6 +76,7 @@ export function App() {
     setArea(next)
     setError('')
     setPicked(undefined)
+    setLiveResult(false)
     const tool = tools.find(item => item.id === next)?.id
     setResult(tool ? local ? data?.results.find(item => item.tool === tool) : runDemo(tool, selected, context, before, after) : undefined)
   }
@@ -87,11 +91,15 @@ export function App() {
     setAfter('draft')
     setPicked(undefined)
     setError('')
+    setLiveResult(false)
     setResult(initialDemoResult())
   }
 
   function live(nextContext: Context, ids = selected, freshBefore = before, freshAfter = after) {
-    if (!local && item) setResult(runDemo(item.id, ids, nextContext, freshBefore, freshAfter))
+    if (!local && item) {
+      setLiveResult(false)
+      setResult(runDemo(item.id, ids, nextContext, freshBefore, freshAfter))
+    }
   }
 
   function changeContext(next: Context) { setContext(next); live(next) }
@@ -116,6 +124,10 @@ export function App() {
     setData(previous => previous && ({ ...previous, results: [...previous.results.filter(item => item.tool !== next.tool), next] }))
   }
 
+  function requestFor(tool: ToolId, model: Analyze['provider']): Analyze {
+    return { tool, docIds: tool === 'redline' ? [before, after] : selected, context, provider: model }
+  }
+
   async function run() {
     if (!item || !data) return
     setError('')
@@ -123,7 +135,7 @@ export function App() {
     if (provider === 'openai' && !cloud) { setForm({ kind: 'key' }); return }
     setBusy(true)
     try {
-      const request: Analyze = { tool: item.id, docIds: item.id === 'redline' ? [before, after] : selected, context, provider }
+      const request = requestFor(item.id, provider)
       const outcome = await api<Result | Preview>(caseRoute(data.id) + '/analyze', post(request))
       if ('token' in outcome) setPreview(outcome)
       else apply(outcome)
@@ -210,7 +222,7 @@ export function App() {
             {item.id === 'launch' && <label>Proposed retention{local
               ? <input type="number" min="0" max="36500" value={context.retention} onChange={event => changeContext({ ...context, retention: event.target.value })}/>
               : <select value={context.retention} onChange={event => changeContext({ ...context, retention: event.target.value })}><option value="30">30 days</option><option value="180">180 days</option></select>}</label>}
-            {item.id === 'memory' && <label className="question">Question<input value={context.question} placeholder="What exception was approved before?" onChange={event => changeContext({ ...context, question: event.target.value })}/></label>}
+            {item.id === 'memory' && <label className="question">Question<input value={context.question} maxLength={1500} placeholder="What exception was approved before?" onChange={event => changeContext({ ...context, question: event.target.value })}/></label>}
             {item.id === 'redline' && <>{(['Baseline', 'Changed version'] as const).map((label, index) => <label key={label}>{label}
               <select value={index ? after : before} onChange={event => {
                 if (index) { setAfter(event.target.value); live(context, selected, before, event.target.value) }
@@ -223,8 +235,15 @@ export function App() {
             {data.docs.map(doc => <label className="check" key={doc.id}><input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggle(doc.id)}/>{doc.name} · {doc.version}</label>)}
             {!data.docs.length && <p className="muted">No document versions uploaded.</p>}
           </details>}
-          <div className="control-footer"><button className="primary" disabled={busy} onClick={() => void run()}><Play size={15}/>{busy ? 'Analyzing…' : provider === 'openai' && local ? 'Preview cloud analysis' : 'Run analysis'}</button>
-            <span><i/>{local ? 'Current case evidence' : 'Sample evidence · saved AI results'}</span></div>
+          <div className="control-footer">
+            <div className="control-actions">
+              <button className="primary" disabled={busy} onClick={() => void run()}><Play size={15}/>{busy ? 'Analyzing…' : !local ? 'Use saved results' : provider === 'openai' ? 'Preview cloud analysis' : 'Run analysis'}</button>
+              {!local && <button className="secondary" onClick={() => setLiveRequest(requestFor(item.id, 'openai'))}>
+                <Sparkles size={15}/> Analyze live with OpenAI
+              </button>}
+            </div>
+            <span role="status"><i/>{local ? 'Current case evidence' : liveResult ? 'Live analysis · GPT-6 Luna' : 'Sample evidence · saved AI results'}</span>
+          </div>
         </section>}
         {error && <p className="error" role="alert">{error}</p>}
         {item ? <Findings result={result} data={data} open={show} labels={labels} onSave={save}/>
@@ -234,6 +253,12 @@ export function App() {
       <Sources data={data} picked={picked} onPick={show} onClose={() => setPicked(undefined)} local={local}/>
     </div>}
     {form && <WorkspaceForm mode={form} data={data} cloud={cloud} setCloud={setCloud} close={() => setForm(undefined)} update={update} remove={() => { setData(undefined); reload() }}/>}
+    {liveRequest && <LiveAnalysis data={demo} request={liveRequest} close={() => setLiveRequest(undefined)} complete={result => {
+      setResult(result)
+      setLiveResult(true)
+      setPicked(undefined)
+      setLiveRequest(undefined)
+    }}/>}
     {preview && <Modal title="Send evidence to OpenAI?" close={() => setPreview(undefined)}>
       <div className="form"><p>OpenAI · {preview.model}. Approve sending the evidence and context shown below for this run.</p>
         <pre className="payload" tabIndex={0}>{preview.input}</pre>

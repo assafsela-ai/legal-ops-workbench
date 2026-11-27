@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { demo, demoContext, runDemo } from '../src/demo'
 import { sourcesFor, tools, type Analyze, type ToolId } from '../src/domain'
 import { hasExactQuote, daysBefore } from '../src/rules'
-import { prepareAnalysis, finalizeAnalysis } from '../server/analysis'
+import { prepareAnalysis, finalizeAnalysis } from '../src/analysis'
 import { extract } from '../server/extract'
 
 const ids = demo.docs.map(doc => doc.id)

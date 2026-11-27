@@ -1,7 +1,7 @@
 import { z } from 'zod'
-import { sourcesFor, type Analyze, type Case, type Doc, type Finding, type Result } from '../src/domain'
-import { compareText, daysBefore, formatDate, hasExactQuote } from '../src/rules'
-import type { ModelInput } from './providers'
+import { sourcesFor, type Analyze, type Case, type Doc, type Finding, type Result } from './domain'
+import { compareText, daysBefore, formatDate, hasExactQuote } from './rules'
+import type { ModelInput } from './openai'
 
 const proposalSchema = z.object({
   findings: z.array(z.object({
