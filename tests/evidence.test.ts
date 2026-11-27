@@ -60,6 +60,14 @@ test('renewal dates are calculated only with explicit calendar days and valid da
   assert.equal(result('2027-06-30', 60).status, 'Needs review')
   assert.equal(result('2027-06-31', 30).status, 'Needs review')
   assert.equal(daysBefore('2028-03-01', 1), '2028-02-29')
+  const scanned = { ...demo, docs: demo.docs.map(doc => doc.id === 'msa'
+    ? { ...doc, sources: doc.sources.map(source => ({ ...source, ocr: true as const })) }
+    : doc) }
+  const review = finalizeAnalysis(input, prepareAnalysis(scanned, input), {
+    findings: [proposal({ date: '2027-06-30', days: 30, refs: [ref('msa-7.1')] })],
+  }).findings[0]
+  assert.equal(review.status, 'Needs review')
+  assert.match(review.summary, /OCR wording/)
 })
 
 test('extracts DOCX paragraphs and PDF pages and rejects invalid or textless files', async () => {

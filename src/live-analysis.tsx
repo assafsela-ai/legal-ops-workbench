@@ -60,6 +60,9 @@ export function LiveAnalysis({ data, request, close, complete }: {
     <form className="form" onSubmit={submit}>
       <p><strong>OpenAI · GPT-6 Luna</strong></p>
       <p id="live-key-help">Your browser sends the key, the selected text, and your current inputs directly to OpenAI after you confirm. The original files stay on your device. The key field clears on submit. OpenAI may bill your API project.</p>
+      {prepared?.evidence.sources.some(source => source.ocr) && <p>Some passages came from OCR. Check important wording against the original scan.</p>}
+      {prepared?.evidence.docs.filter(doc => doc.unreadablePages?.length).map(doc =>
+        <p key={doc.id}>{doc.name} · OCR found no text on pages {doc.unreadablePages!.join(', ')}. Those pages are excluded.</p>)}
       {prepared && <details className="live-payload">
         <summary>Review the evidence and inputs being sent</summary>
         <pre className="payload" tabIndex={0}>{prepared.evidence.input.data}</pre>

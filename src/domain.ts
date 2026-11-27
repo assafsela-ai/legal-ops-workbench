@@ -10,8 +10,8 @@ export const tools = [
 export type ToolId = typeof tools[number]['id']
 export const roles = ['Signed agreement', 'Amendment', 'Draft', 'Vendor evidence', 'Company policy', 'Product spec'] as const
 export type Role = typeof roles[number]
-export type Source = { id: string; label: string; text: string }
-export type Doc = { id: string; name: string; role: Role; version: string; signed: boolean; sources: Source[] }
+export type Source = { id: string; label: string; text: string; ocr?: true }
+export type Doc = { id: string; name: string; role: Role; version: string; signed: boolean; sources: Source[]; unreadablePages?: number[] }
 export type Ref = { id: string; quote: string }
 export type Finding = {
   title: string; summary: string; status: 'Finding' | 'Needs review' | 'Verified'; refs: Ref[]

@@ -85,6 +85,7 @@ test('public live analysis sends sample evidence to Luna and verifies source quo
 })
 
 test('public uploads stay in this tab and only selected document text is sent', async ({ page }) => {
+  test.setTimeout(60_000)
   const quote = 'Only Enterprise customers are excluded from model training.'
   let calls = 0
   await page.route('https://api.openai.com/v1/responses', async route => {
@@ -114,7 +115,7 @@ test('public uploads stay in this tab and only selected document text is sent', 
   }
   await dialog.getByLabel('Document file').setInputFiles('tests/no-text.pdf')
   await button('Add document').click()
-  await expect(dialog.getByRole('alert')).toContainText('without selectable text')
+  await expect(dialog.getByRole('alert')).toContainText('OCR found no readable text', { timeout: 30_000 })
   await add('public/samples/msa.docx', 'Uploaded agreement')
   await button('Upload document').click()
   await add('public/samples/terms.pdf', 'Uploaded terms')
@@ -138,6 +139,43 @@ test('public uploads stay in this tab and only selected document text is sent', 
   await button('Remove Uploaded terms').click()
   await expect(page.getByRole('main').getByText('Uploaded terms', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('main').getByText('Uploaded agreement', { exact: true })).toBeVisible()
+})
+
+test('an image-only PDF is recognized locally and real OCR text reaches the analysis preview', async ({ page }) => {
+  test.setTimeout(90_000)
+  let sends = 0
+  await page.route('https://api.openai.com/v1/responses', async route => {
+    sends++
+    const body = route.request().postDataJSON()
+    expect(body.model).toBe('gpt-6-luna')
+    const input = JSON.parse(body.input[1].content)
+    const source = input.sources[0]
+    expect(source.ocr).toBe(true)
+    expect(source.label).toContain('Page 1 · OCR')
+    expect(source.text).toContain('Only Enterprise')
+    await route.fulfill({ json: { status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({
+      findings: [{ title: 'Training scope in scan', summary: 'The scanned terms name Enterprise customers.', review: false,
+        refs: [{ id: source.id, quote: 'Only Enterprise' }], action: null, date: null, days: null, baseHours: null, amendmentHours: null, amendmentPlan: null }],
+    }) }] }] } })
+  })
+  await page.goto('http://127.0.0.1:4179/')
+  await page.getByRole('button', { name: 'Use my documents' }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByLabel('Document file').setInputFiles('tests/scanned-terms.pdf')
+  await dialog.getByRole('button', { name: 'Add document', exact: true }).click()
+  await expect(dialog).toHaveCount(0, { timeout: 60_000 })
+  await page.getByRole('button', { name: 'Review documents' }).click()
+  await page.getByRole('button', { name: 'Analyze live with OpenAI' }).click()
+  await dialog.getByText('Review the evidence and inputs being sent').click()
+  await expect(dialog.locator('.payload')).toContainText('Only Enterprise')
+  await expect(dialog.getByText('Some passages came from OCR.', { exact: false })).toBeVisible()
+  expect(sends).toBe(0)
+  await dialog.getByLabel('OpenAI API key').fill('sk-fictional-ocr-fixture-key')
+  await dialog.getByRole('button', { name: 'Send and analyze' }).click()
+  await page.getByRole('button', { name: /scanned-terms.*OCR/ }).click()
+  await expect(page.getByRole('blockquote')).toContainText('Only Enterprise')
+  await expect(page.getByText('OCR text from a scanned page.', { exact: false })).toBeVisible()
+  expect(sends).toBe(1)
 })
 
 test('local key entry, preview cancellation, persistence, and delete', async ({ page }) => {

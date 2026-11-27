@@ -18,6 +18,7 @@ export function Sources({ data, picked, onPick, onClose, local }: {
     {source ? <div className="source-preview" id="source-preview" tabIndex={-1}>
       <div className="overline">SOURCE EXCERPT</div>
       <h3>{source.label}</h3>
+      {source.ocr && <p className="muted">OCR text from a scanned page. Check the wording against the original.</p>}
       <blockquote>{offset >= 0 && snippet ? <>{source.text.slice(0, offset)}<mark>{snippet}</mark>{source.text.slice(offset + snippet.length)}</> : source.text}</blockquote>
       {local && doc && <a className="text-link" href={caseRoute(data.id).replace(/^/, './api') + '/documents/' + doc.id + '/file'} onClick={async event => {
         event.preventDefault()
@@ -33,6 +34,7 @@ export function Sources({ data, picked, onPick, onClose, local }: {
     </div> : <p className="muted inspector-note">Open a reference to check the exact wording.</p>}
     <div className="source-list">
       {data.docs.map(item => <details key={item.id}><summary><FileText size={15}/><span>{item.name}<small>{item.version}</small></span></summary>
+        {!!item.unreadablePages?.length && <p className="muted">OCR found no text on pages {item.unreadablePages.join(', ')}.</p>}
         {item.sources.map(part => <button type="button" key={part.id} onClick={() => onPick({ id: part.id, quote: part.text })}>{part.label}<ArrowUpRight size={12}/></button>)}
       </details>)}
     </div>
@@ -58,7 +60,9 @@ export function Library({ area, data, local, form, open, launchReview, browserDo
     {data.docs.length === 0 && <p className="muted">Upload a DOCX or PDF to start your case.</p>}
     {data.docs.map(doc => <div className="document-row" key={doc.id}>
       <button className="library-row" onClick={() => open({ id: doc.sources[0].id, quote: '' })}>
-        <FileText size={18}/><span><strong>{doc.name}</strong><small>{doc.role} · {doc.version}</small></span><ArrowUpRight size={15}/>
+        <FileText size={18}/><span><strong>{doc.name}</strong><small>{doc.role} · {doc.version}{doc.sources.some(source => source.ocr) && ' · OCR'}</small>
+          {!!doc.unreadablePages?.length && <small>OCR found no text on pages {doc.unreadablePages.join(', ')}.</small>}
+        </span><ArrowUpRight size={15}/>
       </button>
       {browserDocuments && <button className="secondary" onClick={() => browserDocuments.remove(doc.id)} aria-label={'Remove ' + doc.name}>Remove</button>}
     </div>)}

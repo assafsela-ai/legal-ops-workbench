@@ -19,7 +19,11 @@ For a live review of the same sample case, open a workflow and select **Analyze 
 
 ## Work with your own files
 
-In the public demo, select **Use my documents** and add an unlocked DOCX or PDF with selectable text, up to 10 MB per file. Add more versions under **Documents & playbook**. Open a review workflow, select the evidence, and choose **Analyze live with OpenAI**. The preview shows the extracted text, document labels, and inputs that will be sent. GPT-6 Luna receives that content after you confirm with your own API key. Original files stay on your device. The browser keeps the extracted text only in the current tab. Scanned PDFs need a copy with selectable text. If a selection exceeds the analysis limit, select fewer documents or use a shorter excerpt.
+In the public demo, select **Use my documents** and add an unlocked DOCX or PDF, up to 10 MB per file. On pages without a text layer, the browser runs English and Hebrew OCR automatically, up to 25 scanned pages per file. For a longer scan, split the PDF into smaller files. OCR passages are marked by page. Check important wording against the original scan. Pages with no recognized text are listed and excluded from analysis.
+
+Add more versions under **Documents & playbook**. Open a review workflow, select the evidence, and choose **Analyze live with OpenAI**. The preview shows the extracted text, document labels, and inputs that will be sent. GPT-6 Luna receives that content after you confirm with your own API key. Original files and scan images stay on your device. The browser keeps the extracted text only in the current tab. If a selection exceeds the analysis limit, select fewer documents or use a shorter excerpt.
+
+The site serves the OCR engine and language files from the same host. The English and Hebrew data are the `4.0.0_best_int` files from the corresponding Tesseract language packages, version 1.0.0. See the [OCR dependency licenses](public/ocr-licenses/).
 
 ### Local workspace
 
