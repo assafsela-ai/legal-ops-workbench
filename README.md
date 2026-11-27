@@ -19,6 +19,10 @@ For a live review of the same sample case, open a workflow and select **Analyze 
 
 ## Work with your own files
 
+In the public demo, select **Use my documents** and add an unlocked DOCX or PDF with selectable text, up to 10 MB per file. Add more versions under **Documents & playbook**. Open a review workflow, select the evidence, and choose **Analyze live with OpenAI**. The preview shows the extracted text, document labels, and inputs that will be sent. GPT-6 Luna receives that content after you confirm with your own API key. Original files stay on your device. The browser keeps the extracted text only in the current tab. Scanned PDFs need a copy with selectable text. If a selection exceeds the analysis limit, select fewer documents or use a shorter excerpt.
+
+### Local workspace
+
 Use Node.js 24.12+ on the Node 24 line, or Node.js 26+. From a local checkout run:
 
 ```sh

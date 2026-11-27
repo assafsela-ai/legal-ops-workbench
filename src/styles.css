@@ -63,6 +63,11 @@ h1 { font-size: clamp(2rem, 3.65vw, 3.35rem); line-height: 1.03; letter-spacing:
 .workspace-title p { color: var(--muted); font-size: 1rem; line-height: 1.5; }
 .controls { background: #fcfdf9; border: 1px solid var(--line); border-radius: .67rem; margin-bottom: 1.6rem; padding: 1rem; }
 .control-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr)); align-items: end; gap: .8rem; margin-bottom: .9rem; }
+.upload-fields { margin-bottom: 0; }
+.document-row { display: flex; align-items: center; gap: .5rem; }
+.document-row .library-row { flex: 1; min-width: 0; }
+.document-row .library-row strong { overflow-wrap: anywhere; }
+.document-note { margin-block: 0 .9rem; }
 .control-footer { display: flex; justify-content: space-between; align-items: center; gap: .8rem; flex-wrap: wrap; }
 .control-actions { display: flex; flex-wrap: wrap; gap: .55rem; }
 .control-footer span { color: var(--muted); display: flex; align-items: center; gap: .4rem; font-size: .77rem; }

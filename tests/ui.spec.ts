@@ -84,6 +84,62 @@ test('public live analysis sends sample evidence to Luna and verifies source quo
   await expect(page.getByRole('status')).toContainText('saved AI results')
 })
 
+test('public uploads stay in this tab and only selected document text is sent', async ({ page }) => {
+  const quote = 'Only Enterprise customers are excluded from model training.'
+  let calls = 0
+  await page.route('https://api.openai.com/v1/responses', async route => {
+    calls++
+    const body = route.request().postDataJSON()
+    const evidence = JSON.parse(body.input[1].content) as { sources: { id: string; label: string; text: string }[] }
+    expect(body.model).toBe('gpt-6-luna')
+    expect(evidence.sources.every(source => source.label.includes('Uploaded terms'))).toBeTruthy()
+    const pdf = evidence.sources.find(source => source.text.includes(quote))
+    expect(pdf?.label).toContain('Page 1')
+    await route.fulfill({ json: { status: 'completed', output: [{ content: [{ type: 'output_text', text: JSON.stringify({
+      findings: [{ title: 'Uploaded terms finding', summary: 'The clause names enterprise plans.', review: false,
+        refs: [{ id: pdf!.id, quote }], action: null, date: null, days: null, baseHours: null, amendmentHours: null, amendmentPlan: null,
+      }],
+    }) }] }] } })
+  })
+  await page.goto('http://127.0.0.1:4179/')
+  const button = (name: string) => page.getByRole('button', { name, exact: true })
+  const dialog = page.getByRole('dialog')
+  await button('Use my documents').click()
+  const add = async (file: string, title: string) => {
+    await dialog.getByLabel('Document file').setInputFiles(file)
+    await dialog.getByLabel('Document title').fill(title)
+    await button('Add document').click()
+    await expect(dialog).toHaveCount(0)
+    await expect(page.getByRole('main').getByText(title, { exact: true })).toBeVisible()
+  }
+  await dialog.getByLabel('Document file').setInputFiles('tests/no-text.pdf')
+  await button('Add document').click()
+  await expect(dialog.getByRole('alert')).toContainText('without selectable text')
+  await add('public/samples/msa.docx', 'Uploaded agreement')
+  await button('Upload document').click()
+  await add('public/samples/terms.pdf', 'Uploaded terms')
+  await button('Review documents').click()
+  await page.getByRole('checkbox', { name: /Uploaded agreement/ }).uncheck()
+  await button('Analyze live with OpenAI').click()
+  await dialog.getByText('Review the evidence and inputs being sent').click()
+  await expect(dialog.locator('.payload')).toContainText(quote)
+  await expect(dialog.locator('.payload')).not.toContainText('Uploaded agreement')
+  expect(calls).toBe(0)
+  await dialog.getByLabel('OpenAI API key').fill('sk-fictional-upload-fixture-key')
+  await button('Send and analyze').click()
+  const findings = page.getByRole('region', { name: 'Findings' })
+  await expect(findings.getByRole('heading', { name: 'Uploaded terms finding' })).toBeVisible()
+  await findings.getByRole('button', { name: /Uploaded terms/ }).click()
+  await expect(page.getByRole('blockquote')).toContainText(quote)
+  expect(calls).toBe(1)
+  await button('Use sample case').click()
+  await expect(page.getByText('Training exclusion applies to Enterprise only')).toBeVisible()
+  await button('Use my documents').click()
+  await button('Remove Uploaded terms').click()
+  await expect(page.getByRole('main').getByText('Uploaded terms', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('main').getByText('Uploaded agreement', { exact: true })).toBeVisible()
+})
+
 test('local key entry, preview cancellation, persistence, and delete', async ({ page }) => {
   const caseName = 'Fictional UI test ' + Date.now()
   await page.goto('http://127.0.0.1:4180/')

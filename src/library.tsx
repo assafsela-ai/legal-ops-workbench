@@ -39,24 +39,35 @@ export function Sources({ data, picked, onPick, onClose, local }: {
   </aside>
 }
 
-export function Library({ area, data, local, form, open, launchReview }: {
+export function Library({ area, data, local, form, open, launchReview, browserDocuments }: {
   area: 'documents' | 'decisions'; data: Case; local: boolean; form: (mode: FormState) => void;
   open: (ref: Ref) => void; launchReview?: Result
+  browserDocuments?: { add: () => void; remove: (id: string) => void; atLimit: boolean; review: () => void }
 }) {
   const labels = new Map(sourcesFor(data).map(source => [source.id, source.label]))
   const flagged = new Set(launchReview?.findings.filter(finding => finding.status === 'Needs review')
     .flatMap(finding => finding.refs.map(ref => ref.id)))
   if (area === 'documents') return <div className="library">
-    <div className="section-heading"><h3>Document versions</h3>{local && <button className="secondary" onClick={() => form({ kind: 'upload' })}><Plus size={15}/> Upload version</button>}</div>
+    <div className="section-heading"><h3>Document versions</h3>
+      {local && <button className="secondary" onClick={() => form({ kind: 'upload' })}><Plus size={15}/> Upload version</button>}
+      {browserDocuments && <button className="primary" onClick={browserDocuments.add} disabled={browserDocuments.atLimit}><Plus size={15}/> Upload document</button>}
+    </div>
+    {browserDocuments && <p className="muted document-note">{browserDocuments.atLimit
+      ? 'Remove a document before adding another.'
+      : 'Files are read on this device. Extracted text stays in this tab until you approve sending it to OpenAI.'}</p>}
     {data.docs.length === 0 && <p className="muted">Upload a DOCX or PDF to start your case.</p>}
-    {data.docs.map(doc => <button className="library-row" key={doc.id} onClick={() => open({ id: doc.sources[0].id, quote: '' })}>
-      <FileText size={18}/><span><strong>{doc.name}</strong><small>{doc.role} · {doc.version}</small></span><ArrowUpRight size={15}/>
-    </button>)}
-    <div className="section-heading spaced"><h3>Company playbook</h3>{local && <button className="secondary" onClick={() => form({ kind: 'rule' })}><Plus size={15}/> Add rule</button>}</div>
+    {data.docs.map(doc => <div className="document-row" key={doc.id}>
+      <button className="library-row" onClick={() => open({ id: doc.sources[0].id, quote: '' })}>
+        <FileText size={18}/><span><strong>{doc.name}</strong><small>{doc.role} · {doc.version}</small></span><ArrowUpRight size={15}/>
+      </button>
+      {browserDocuments && <button className="secondary" onClick={() => browserDocuments.remove(doc.id)} aria-label={'Remove ' + doc.name}>Remove</button>}
+    </div>)}
+    {browserDocuments && data.docs.length > 0 && <button className="secondary spaced" onClick={browserDocuments.review}>Review documents</button>}
+    {!browserDocuments && <div className="section-heading spaced"><h3>Company playbook</h3>{local && <button className="secondary" onClick={() => form({ kind: 'rule' })}><Plus size={15}/> Add rule</button>}</div>}
     {data.policy.filter(source => !('archived' in source && source.archived)).map(source => <article className="rule" key={source.id}>
       <strong>{source.label}</strong><p>{source.text}</p>{local && <button className="secondary" onClick={() => form({ kind: 'rule', previous: source })}>Edit rule</button>}
     </article>)}
-    {!local && <a className="text-link spaced" href="./samples/legal-ops-samples.zip" download><Download size={15}/> Download sample files</a>}
+    {!local && !browserDocuments && <a className="text-link spaced" href="./samples/legal-ops-samples.zip" download><Download size={15}/> Download sample files</a>}
   </div>
   return <div className="library">
     <div className="section-heading"><h3>Activity log</h3>{local && <div className="actions"><button className="secondary" onClick={() => form(newEntry('Decision'))}>New decision</button><button className="secondary" onClick={() => form(newEntry('Task'))}>New task</button></div>}</div>

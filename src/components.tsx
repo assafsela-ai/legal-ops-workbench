@@ -24,7 +24,7 @@ export function RefButtons({ refs, open, labels }: { refs: Ref[]; open: (ref: Re
 }
 
 export function Findings({ result, data, open, labels, onSave }: {
-  result?: Result; data: Case; open: (ref: Ref) => void; labels: Map<string, string>; onSave: (finding: Finding, tool: ToolId) => void
+  result?: Result; data: Case; open: (ref: Ref) => void; labels: Map<string, string>; onSave?: (finding: Finding, tool: ToolId) => void
 }) {
   if (!result) return <div className="empty"><BookOpen size={27}/><h3>Ready for review</h3><p>Select evidence and run the analysis to see source-backed findings here.</p></div>
   return <section className="findings" aria-label="Findings">
@@ -40,7 +40,7 @@ export function Findings({ result, data, open, labels, onSave }: {
         <p>{finding.summary}</p>
         {finding.action && <div className="draft-question"><strong>Question for the vendor</strong><p>{finding.action}</p></div>}
         <RefButtons refs={finding.refs} open={open} labels={labels}/>
-        {canSave && <button className="secondary save" disabled={saved} onClick={() => onSave(finding, result.tool)}>
+        {canSave && onSave && <button className="secondary save" disabled={saved} onClick={() => onSave(finding, result.tool)}>
           {saved ? 'Task added' : task ? 'Add to task list' : 'Record decision'}
         </button>}
       </article>

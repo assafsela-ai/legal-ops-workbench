@@ -59,7 +59,7 @@ export function LiveAnalysis({ data, request, close, complete }: {
   return <Modal title="Run a live analysis" close={dismiss}>
     <form className="form" onSubmit={submit}>
       <p><strong>OpenAI · GPT-6 Luna</strong></p>
-      <p id="live-key-help">Your browser sends the key and demo evidence directly to OpenAI. The field clears when you send the request. OpenAI may bill your API project.</p>
+      <p id="live-key-help">Your browser sends the key, the selected text, and your current inputs directly to OpenAI after you confirm. The original files stay on your device. The key field clears on submit. OpenAI may bill your API project.</p>
       {prepared && <details className="live-payload">
         <summary>Review the evidence and inputs being sent</summary>
         <pre className="payload" tabIndex={0}>{prepared.evidence.input.data}</pre>
@@ -68,7 +68,7 @@ export function LiveAnalysis({ data, request, close, complete }: {
         <input ref={keyField} type="password" required maxLength={500} autoComplete="off" spellCheck={false}
           autoCapitalize="none" disabled={!prepared || busy} aria-describedby="live-key-help"/>
       </label>
-      <p role="status">{busy ? 'Waiting for OpenAI…' : !prepared && !error ? 'Preparing demo evidence…' : ''}</p>
+      <p role="status">{busy ? 'Waiting for OpenAI…' : !prepared && !error ? 'Preparing evidence…' : ''}</p>
       {error && <p className="error" role="alert">{error}</p>}
       <div className="actions">
         <button className="secondary" type="button" onClick={dismiss}>Cancel</button>

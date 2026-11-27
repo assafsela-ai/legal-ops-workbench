@@ -7,19 +7,29 @@ import { emptyContext, modelNames, sourcesFor, tools, type Analyze, type Case, t
 import { newEntry, WorkspaceForm, type FormState } from './forms'
 import { Library, Sources } from './library'
 import { LiveAnalysis } from './live-analysis'
+import { BrowserUpload } from './browser-upload'
+import { maxBrowserDocuments } from './document-text'
 
 type Area = ToolId | 'documents' | 'decisions'
 type CaseRow = Pick<Case, 'id' | 'title' | 'description'>
 type Preview = { token: string; model: string; input: string }
 const local = Boolean(document.querySelector('meta[name="workbench-mode"]'))
 const toolIds = tools.map(item => item.id)
+const emptyBrowserCase: Case = {
+  id: 'my-documents', title: 'My documents', description: 'Documents in this browser tab',
+  docs: [], policy: [], entries: [], results: [],
+}
 
 function defaultSelection(data: Case) {
   return data.docs.map(doc => doc.id)
 }
 
 export function App() {
-  const [data, setData] = useState<Case | undefined>(local ? undefined : demo)
+  const [workspace, setData] = useState<Case | undefined>(local ? undefined : demo)
+  const [browserCase, setBrowserCase] = useState(emptyBrowserCase)
+  const [myDocuments, setMyDocuments] = useState(false)
+  const [uploadOpen, setUploadOpen] = useState(false)
+  const data = myDocuments ? browserCase : workspace
   const [rows, setRows] = useState<CaseRow[]>([])
   const [area, setArea] = useState<Area>('vendor')
   const [context, setContext] = useState<Context>(local ? emptyContext : demoContext)
@@ -42,6 +52,15 @@ export function App() {
   const activeIndex = item ? toolIds.indexOf(item.id) : -1
   const title = item?.title ?? (area === 'documents' ? 'Documents & playbook' : 'Decisions & tasks')
   const labels = new Map(data ? sourcesFor(data).map(source => [source.id, source.label]) : [])
+  const selectedDocuments = browserCase.docs.filter(doc => selected.includes(doc.id))
+  const requiresSigned = item?.id === 'stack' || item?.id === 'promises'
+  let liveBlock = ''
+  if (myDocuments && item) {
+    if (item.id === 'redline') {
+      if (!before || !after || before === after) liveBlock = 'Choose two different document versions.'
+    } else if (!selectedDocuments.length) liveBlock = 'Select at least one document to analyze.'
+    else if (requiresSigned && !selectedDocuments.some(doc => doc.signed)) liveBlock = 'Select a signed agreement or a signed amendment.'
+  }
 
   function fail(error: unknown) { setError(error instanceof Error ? error.message : 'The request failed.') }
 
@@ -78,10 +97,11 @@ export function App() {
     setPicked(undefined)
     setLiveResult(false)
     const tool = tools.find(item => item.id === next)?.id
-    setResult(tool ? local ? data?.results.find(item => item.tool === tool) : runDemo(tool, selected, context, before, after) : undefined)
+    setResult(tool ? local || myDocuments ? data?.results.find(item => item.tool === tool) : runDemo(tool, selected, context, before, after) : undefined)
   }
 
   function reset() {
+    setMyDocuments(false)
     setGuided(false)
     setData(demo)
     setArea('vendor')
@@ -95,10 +115,36 @@ export function App() {
     setResult(initialDemoResult())
   }
 
+  function openMyDocuments() {
+    setMyDocuments(true)
+    setGuided(false)
+    navigate('documents')
+    setContext(emptyContext)
+    setSelected(defaultSelection(browserCase))
+    setBefore(browserCase.docs[0]?.id ?? '')
+    setAfter(browserCase.docs[1]?.id ?? '')
+    if (!browserCase.docs.length) setUploadOpen(true)
+  }
+
+  function changeBrowserDocuments(docs: Case['docs']) {
+    const contains = (id: string) => docs.some(doc => doc.id === id)
+    const baseline = contains(before) ? before : docs[0]?.id ?? ''
+    const changed = contains(after) && after !== baseline ? after : docs.find(doc => doc.id !== baseline)?.id ?? ''
+    const added = docs.filter(doc => !browserCase.docs.some(previous => previous.id === doc.id)).map(doc => doc.id)
+    setBrowserCase({ ...browserCase, docs })
+    setSelected(current => [...current.filter(contains), ...added])
+    setBefore(baseline)
+    setAfter(changed)
+    setPicked(undefined)
+    setResult(undefined)
+    setLiveResult(false)
+  }
+
   function live(nextContext: Context, ids = selected, freshBefore = before, freshAfter = after) {
     if (!local && item) {
       setLiveResult(false)
-      setResult(runDemo(item.id, ids, nextContext, freshBefore, freshAfter))
+      setPicked(undefined)
+      setResult(myDocuments ? undefined : runDemo(item.id, ids, nextContext, freshBefore, freshAfter))
     }
   }
 
@@ -173,9 +219,11 @@ export function App() {
     <header className="top">
       <div className="brand"><span className="brand-mark"><Gavel size={22}/></span><span>Legal Ops <strong>Workbench</strong></span></div>
       <div className="top-actions">
-        <span className="mode"><i/>{local ? 'Local workspace' : 'Interactive demo'}</span>
+        <span className="mode"><i/>{local ? 'Local workspace' : myDocuments ? 'Browser workspace' : 'Interactive demo'}</span>
         {local ? <button className="tool-button" onClick={() => setForm({ kind: 'key' })}><KeyRound size={17}/> <span>Model settings</span></button>
-          : <><button className="tool-button" onClick={() => { setGuided(true); navigate('vendor') }}><CircleHelp size={17}/> <span>Guided tour</span></button>
+          : myDocuments ? <button className="tool-button" onClick={reset}><BookOpen size={16}/> <span>Use sample case</span></button>
+          : <><button className="tool-button" onClick={openMyDocuments}><Plus size={17}/> <span>Use my documents</span></button>
+            <button className="tool-button" onClick={() => { setGuided(true); navigate('vendor') }}><CircleHelp size={17}/> <span>Guided tour</span></button>
             <button className="tool-button" onClick={reset}><RotateCcw size={16}/> <span>Reset demo</span></button></>}
       </div>
     </header>
@@ -191,18 +239,18 @@ export function App() {
       <nav className="sidebar" aria-label="Case workspace">
         <div className="case-ident">
           {local && <button className="back" disabled={busy} onClick={() => { setData(undefined); setError(''); reload() }}><ArrowLeft size={14}/> All cases</button>}
-          <div className="overline">{local ? 'CASE WORKSPACE' : 'SAMPLE CASE'}</div>
+          <div className="overline">{local || myDocuments ? 'CASE WORKSPACE' : 'SAMPLE CASE'}</div>
           <h2>{data.title}</h2><p>{data.description}</p>
         </div>
         <div className="nav-group"><span className="overline">WORKFLOWS</span>
-          {tools.map(tool => {
+          {tools.filter(tool => !myDocuments || tool.id !== 'memory').map(tool => {
             const Icon = icons[tool.id]
             return <button key={tool.id} disabled={busy} onClick={() => navigate(tool.id)} aria-current={area === tool.id ? 'page' : undefined}><Icon size={17}/><span>{tool.title}</span></button>
           })}
         </div>
         <div className="nav-group secondary-nav"><span className="overline">CASE MATERIAL</span>
           <button disabled={busy} aria-current={area === 'documents' ? 'page' : undefined} onClick={() => navigate('documents')}><Files size={17}/> Documents & playbook</button>
-          <button disabled={busy} aria-current={area === 'decisions' ? 'page' : undefined} onClick={() => navigate('decisions')}><Columns3 size={17}/> Decisions & tasks <small>{data.entries.length}</small></button>
+          {!myDocuments && <button disabled={busy} aria-current={area === 'decisions' ? 'page' : undefined} onClick={() => navigate('decisions')}><Columns3 size={17}/> Decisions & tasks <small>{data.entries.length}</small></button>}
         </div>
         {local && <button className="back delete-link" disabled={busy} onClick={() => setForm({ kind: 'delete' })}><Trash2 size={14}/> Delete case</button>}
         {!local && <a className="repo" href="https://github.com/assafsela-ai/legal-ops-workbench"><BookOpen size={16}/> Source & local setup</a>}
@@ -227,33 +275,42 @@ export function App() {
               <select value={index ? after : before} onChange={event => {
                 if (index) { setAfter(event.target.value); live(context, selected, before, event.target.value) }
                 else { setBefore(event.target.value); live(context, selected, event.target.value, after) }
-              }}><option value="">Select a version</option>{data.docs.filter(doc => local || ['msa', 'draft'].includes(doc.id)).map(doc => <option value={doc.id} key={doc.id}>{doc.name} · {doc.version}</option>)}</select>
+                  }}><option value="">Select a version</option>{data.docs.filter(doc => local || myDocuments || ['msa', 'draft'].includes(doc.id)).map(doc => <option value={doc.id} key={doc.id}>{doc.name} · {doc.version}</option>)}</select>
             </label>)}</>}
             {local && <label>Model<select value={provider} onChange={event => setProviderSelection(event.target.value as Analyze['provider'])}><option value="ollama">Ollama · {modelNames.ollama}</option><option value="openai">OpenAI · {modelNames.openai}</option></select></label>}
           </div>}
-          {local && item.id !== 'redline' && <details className="evidence"><summary>Selected document versions ({selected.length})</summary>
+          {(local || myDocuments) && item.id !== 'redline' && <details className="evidence" open={myDocuments || undefined}><summary>Selected document versions ({selected.length})</summary>
             {data.docs.map(doc => <label className="check" key={doc.id}><input type="checkbox" checked={selected.includes(doc.id)} onChange={() => toggle(doc.id)}/>{doc.name} · {doc.version}</label>)}
             {!data.docs.length && <p className="muted">No document versions uploaded.</p>}
           </details>}
           <div className="control-footer">
             <div className="control-actions">
-              <button className="primary" disabled={busy} onClick={() => void run()}><Play size={15}/>{busy ? 'Analyzing…' : !local ? 'Use saved results' : provider === 'openai' ? 'Preview cloud analysis' : 'Run analysis'}</button>
-              {!local && <button className="secondary" onClick={() => setLiveRequest(requestFor(item.id, 'openai'))}>
+              {!myDocuments && <button className="primary" disabled={busy} onClick={() => void run()}><Play size={15}/>{busy ? 'Analyzing…' : !local ? 'Use saved results' : provider === 'openai' ? 'Preview cloud analysis' : 'Run analysis'}</button>}
+              {!local && <button className={myDocuments ? 'primary' : 'secondary'} disabled={Boolean(liveBlock)} onClick={() => setLiveRequest(requestFor(item.id, 'openai'))}>
                 <Sparkles size={15}/> Analyze live with OpenAI
               </button>}
             </div>
-            <span role="status"><i/>{local ? 'Current case evidence' : liveResult ? 'Live analysis · GPT-6 Luna' : 'Sample evidence · saved AI results'}</span>
+            <span role="status"><i/>{local ? 'Current case evidence' : liveResult ? 'Live analysis · GPT-6 Luna' : myDocuments ? 'Your selected documents' : 'Sample evidence · saved AI results'}</span>
           </div>
+          {liveBlock && <p className="muted document-note">{liveBlock}</p>}
         </section>}
         {error && <p className="error" role="alert">{error}</p>}
-        {item ? <Findings result={result} data={data} open={show} labels={labels} onSave={save}/>
+        {item ? <Findings result={result} data={data} open={show} labels={labels} onSave={myDocuments ? undefined : save}/>
           : <Library area={area === 'documents' ? 'documents' : 'decisions'} data={data} local={local} form={setForm} open={show}
-            launchReview={local ? data.results.find(saved => saved.tool === 'launch') : runDemo('launch', selected, context)}/>}
+            launchReview={local ? data.results.find(saved => saved.tool === 'launch') : myDocuments ? undefined : runDemo('launch', selected, context)}
+            browserDocuments={myDocuments ? {
+              add: () => setUploadOpen(true), remove: id => changeBrowserDocuments(browserCase.docs.filter(doc => doc.id !== id)),
+              atLimit: browserCase.docs.length >= maxBrowserDocuments, review: () => navigate('vendor'),
+            } : undefined}/>}
       </main>
       <Sources data={data} picked={picked} onPick={show} onClose={() => setPicked(undefined)} local={local}/>
     </div>}
     {form && <WorkspaceForm mode={form} data={data} cloud={cloud} setCloud={setCloud} close={() => setForm(undefined)} update={update} remove={() => { setData(undefined); reload() }}/>}
-    {liveRequest && <LiveAnalysis data={demo} request={liveRequest} close={() => setLiveRequest(undefined)} complete={result => {
+    {uploadOpen && <BrowserUpload close={() => setUploadOpen(false)} complete={doc => {
+      changeBrowserDocuments([...browserCase.docs, doc])
+      setUploadOpen(false)
+    }}/>}
+    {liveRequest && <LiveAnalysis data={myDocuments ? browserCase : demo} request={liveRequest} close={() => setLiveRequest(undefined)} complete={result => {
       setResult(result)
       setLiveResult(true)
       setPicked(undefined)
